@@ -27,6 +27,7 @@ import CrashHistory from './components/CrashHistory';
 import MultiplierSelector from './components/MultiplierSelector';
 import PresetBetSelector from './components/PresetBetSelector';
 import StatsPanel from './components/StatsPanel';
+import ExplodingStatusPill from './components/ExplodingStatusPill';
 
 import {
   playBeep,
@@ -595,7 +596,7 @@ export default function App() {
           {/* Centered Rocket Illustration and flight numbers display */}
           <div id="flight-stage-container" className="flex-1 flex flex-col items-center justify-center relative my-4 min-h-[220px]">
             {/* Real-time Status Overlay or Flight Numbers */}
-            <div className="absolute top-0 flex flex-col items-center justify-center w-full text-center z-10 pointer-events-none">
+            <div className="w-full flex flex-col items-center justify-center text-center z-10 select-none pb-4">
               <AnimatePresence mode="wait">
                 {stage === GameStage.BETTING && (
                   <motion.div
@@ -701,6 +702,16 @@ export default function App() {
                         {currentMultiplier.toFixed(2)}x
                       </span>
                     </div>
+                  </motion.div>
+                ) : stage === GameStage.CRASHED ? (
+                  <motion.div
+                    key="status-crashed"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="w-full animate-shake"
+                  >
+                    <ExplodingStatusPill crashMultiplier={crashMultiplier} />
                   </motion.div>
                 ) : (
                   <div className="h-20" /> // spacer to keep layouts identical between transitions
