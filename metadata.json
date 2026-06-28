@@ -1,0 +1,6 @@
+{
+  "name": "Rocket Crash",
+  "description": "A mobile-responsive crash game simulator featuring a flying rocket, real-time multiplier curves, interactive bet customization, auto-cashout, and detailed flight statistics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
