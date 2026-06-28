@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GameStage } from '../types';
 
@@ -15,6 +15,7 @@ interface RocketLogoProps {
 
 export default function RocketLogo({ stage, currentMultiplier = 1.0, className = '' }: RocketLogoProps) {
   const [flicker, setFlicker] = useState(1);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Animate flame flicker
   useEffect(() => {
@@ -25,6 +26,179 @@ export default function RocketLogo({ stage, currentMultiplier = 1.0, className =
       return () => clearInterval(interval);
     }
   }, [stage]);
+
+  // Handle particle trail emission behind the rocket nozzle
+  useEffect(() => {
+    if (stage === GameStage.CRASHED || stage === GameStage.BETTING) {
+      // Clear canvas if any
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    interface Particle {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      size: number;
+      alpha: number;
+      decay: number;
+      color: string;
+      type: 'flame' | 'smoke' | 'spark';
+    }
+
+    let particles: Particle[] = [];
+    let animationFrameId: number;
+
+    const colorsFlame = [
+      'rgba(244, 63, 94, #ALPHA#)',   // Rose / Coral Red
+      'rgba(249, 115, 22, #ALPHA#)',  // Bright Orange
+      'rgba(245, 158, 11, #ALPHA#)',  // Amber / Orange-Yellow
+      'rgba(253, 224, 71, #ALPHA#)',  // Warm Yellow
+      'rgba(255, 255, 255, #ALPHA#)' // White core spark
+    ];
+
+    const colorsSmoke = [
+      'rgba(39, 39, 42, #ALPHA#)',   // Zinc 800 grey
+      'rgba(63, 63, 70, #ALPHA#)',   // Zinc 700 grey
+      'rgba(113, 113, 122, #ALPHA#)', // Zinc 500 grey
+      'rgba(30, 41, 59, #ALPHA#)'    // Slate 800 deep blue-grey
+    ];
+
+    const colorsSpark = [
+      'rgba(16, 185, 129, #ALPHA#)', // Emerald green (matches ORO token vibe)
+      'rgba(52, 211, 153, #ALPHA#)', // Mint green
+      'rgba(245, 166, 35, #ALPHA#)', // Gold
+      'rgba(251, 191, 36, #ALPHA#)'  // Amber gold
+    ];
+
+    const randomRange = (min: number, max: number) => min + Math.random() * (max - min);
+
+    const updateAndDraw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Spawn particles based on flight speed stage
+      const spawnRate = stage === GameStage.FLYING ? 3 : 1;
+      
+      for (let i = 0; i < spawnRate; i++) {
+        // 1. Flame particle
+        const fColorTemplate = colorsFlame[Math.floor(Math.random() * colorsFlame.length)];
+        const fSize = stage === GameStage.FLYING ? randomRange(6, 13) : randomRange(3.5, 7);
+        const fVy = stage === GameStage.FLYING 
+          ? randomRange(5, 9) + Math.min((currentMultiplier - 1) * 1.5, 14) 
+          : randomRange(2, 4);
+
+        particles.push({
+          x: 160 + randomRange(-4, 4),
+          y: 191 + randomRange(0, 4),
+          vx: randomRange(-0.9, 0.9),
+          vy: fVy,
+          size: fSize,
+          alpha: 1.0,
+          decay: stage === GameStage.FLYING ? randomRange(0.015, 0.032) : randomRange(0.03, 0.055),
+          color: fColorTemplate,
+          type: 'flame'
+        });
+
+        // 2. Smoke puff particle (expands and trails longer)
+        if (stage === GameStage.FLYING && Math.random() < 0.45) {
+          const sColorTemplate = colorsSmoke[Math.floor(Math.random() * colorsSmoke.length)];
+          particles.push({
+            x: 160 + randomRange(-5, 5),
+            y: 191 + randomRange(5, 12),
+            vx: randomRange(-1.8, 1.8),
+            vy: randomRange(3, 6) + Math.min((currentMultiplier - 1) * 0.7, 5),
+            size: randomRange(8, 14),
+            alpha: 0.7,
+            decay: randomRange(0.008, 0.022),
+            color: sColorTemplate,
+            type: 'smoke'
+          });
+        }
+
+        // 3. High-velocity glowing sparkles
+        if (stage === GameStage.FLYING && Math.random() < 0.65) {
+          const spColorTemplate = colorsSpark[Math.floor(Math.random() * colorsSpark.length)];
+          particles.push({
+            x: 160 + randomRange(-2, 2),
+            y: 191,
+            vx: randomRange(-3.0, 3.0),
+            vy: randomRange(6, 13) + Math.min((currentMultiplier - 1) * 2.0, 15),
+            size: randomRange(1.5, 3.2),
+            alpha: 1.0,
+            decay: randomRange(0.022, 0.048),
+            color: spColorTemplate,
+            type: 'spark'
+          });
+        }
+      }
+
+      // Update and draw existing particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+
+        // Apply motion
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Apply custom physics based on type
+        if (p.type === 'smoke') {
+          p.size += 0.28; // Smoke swells outwards
+          p.vx *= 0.97;   // Drifts and slows horizontally
+        } else if (p.type === 'spark') {
+          p.vy += 0.12;   // Heavy sparks fall slightly downwards
+        }
+
+        // Apply decay
+        p.alpha -= p.decay;
+
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        // Draw particle
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        
+        ctx.fillStyle = p.color.replace('#ALPHA#', p.alpha.toFixed(2));
+        
+        // Use custom glowing blend and drop shadow offsets
+        if (p.type === 'flame' || p.type === 'spark') {
+          ctx.globalCompositeOperation = 'screen';
+          ctx.shadowBlur = p.type === 'spark' ? 5 : 10;
+          ctx.shadowColor = p.color.replace('#ALPHA#', '0.5');
+        } else {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.shadowBlur = 0;
+        }
+
+        ctx.fill();
+      }
+
+      // Reset state for safety
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.shadowBlur = 0;
+
+      animationFrameId = requestAnimationFrame(updateAndDraw);
+    };
+
+    animationFrameId = requestAnimationFrame(updateAndDraw);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [stage, currentMultiplier]);
 
   // Adjust flame sizing based on flight progress
   const flameScaleY = stage === GameStage.FLYING ? flicker * (1 + Math.min((currentMultiplier - 1) * 0.08, 0.6)) : stage === GameStage.SYSTEMS_CHECK ? flicker * 0.5 : 0;
@@ -161,11 +335,19 @@ export default function RocketLogo({ stage, currentMultiplier = 1.0, className =
             {...getShakeProps()}
             className="relative"
           >
+            {/* Real-time Fading Exhaust Particle Trail Canvas */}
+            <canvas
+              ref={canvasRef}
+              width={320}
+              height={500}
+              className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none z-0"
+              style={{ mixBlendMode: 'screen' }}
+            />
             {/* Rocket Outer Container */}
             <svg
               id="rocket-svg"
               viewBox="0 0 160 220"
-              className="w-44 h-60 drop-shadow-[0_10px_30px_rgba(0,180,255,0.25)] select-none"
+              className="w-44 h-60 drop-shadow-[0_10px_30px_rgba(0,180,255,0.25)] select-none relative z-10"
             >
               <g id="rocket-group">
                 {/* 1. FLAME AND JET EXHAUST */}
