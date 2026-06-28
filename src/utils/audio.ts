@@ -151,3 +151,93 @@ export function playExplosion() {
   subOsc.start();
   subOsc.stop(ctx.currentTime + 0.5);
 }
+
+// Synthesized Engine rumble and launch roar for Liftoff
+export function playLiftoffRumble() {
+  const ctx = getAudioContext();
+  if (!ctx || !masterGain) return;
+
+  const now = ctx.currentTime;
+  const duration = 3.0; // Match the slower overlay liftoff duration
+
+  // 1. Create a White Noise Buffer for engine exhaust hiss & roar
+  const bufferSize = ctx.sampleRate * duration;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const noiseNode = ctx.createBufferSource();
+  noiseNode.buffer = buffer;
+
+  // 2. Lowpass and Bandpass filter combination for the heavy rumble
+  const lowFilter = ctx.createBiquadFilter();
+  lowFilter.type = 'lowpass';
+  lowFilter.frequency.setValueAtTime(140, now);
+  // Modulate filter frequency to simulate erratic fiery engine thrust
+  lowFilter.frequency.linearRampToValueAtTime(320, now + duration * 0.4);
+  lowFilter.frequency.exponentialRampToValueAtTime(180, now + duration);
+
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.01, now);
+  noiseGain.gain.linearRampToValueAtTime(0.35, now + 0.25); // quick ramp up
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration); // smooth fadeout
+
+  noiseNode.connect(lowFilter);
+  lowFilter.connect(noiseGain);
+  noiseGain.connect(masterGain);
+
+  // 3. Low-frequency Oscillators for chest-thumping engine sub rumble
+  const subOsc1 = ctx.createOscillator();
+  const subOsc2 = ctx.createOscillator();
+  const subGain = ctx.createGain();
+
+  subOsc1.type = 'sawtooth';
+  subOsc1.frequency.setValueAtTime(55, now); // A1 note
+  subOsc1.frequency.linearRampToValueAtTime(82.41, now + duration * 0.5); // slide up to E2
+  subOsc1.frequency.linearRampToValueAtTime(45, now + duration);
+
+  subOsc2.type = 'triangle';
+  subOsc2.frequency.setValueAtTime(52, now); // slightly detuned
+  subOsc2.frequency.linearRampToValueAtTime(80, now + duration);
+
+  subGain.gain.setValueAtTime(0.01, now);
+  subGain.gain.linearRampToValueAtTime(0.38, now + 0.3);
+  subGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+  subOsc1.connect(subGain);
+  subOsc2.connect(subGain);
+  subGain.connect(masterGain);
+
+  // 4. Start all synthesized components
+  noiseNode.start(now);
+  subOsc1.start(now);
+  subOsc2.start(now);
+
+  // Stop them
+  noiseNode.stop(now + duration);
+  subOsc1.stop(now + duration);
+  subOsc2.stop(now + duration);
+
+  // 5. Add three high-pitched launch warning alarms (T-0 beep beep)
+  for (let i = 0; i < 3; i++) {
+    const beepTime = now + (i * 0.3);
+    const oscBeep = ctx.createOscillator();
+    const gBeep = ctx.createGain();
+
+    oscBeep.type = 'sine';
+    oscBeep.frequency.setValueAtTime(i === 2 ? 880 : 440, beepTime); // High pitched final confirmation beeps
+
+    gBeep.gain.setValueAtTime(0.0, beepTime);
+    gBeep.gain.linearRampToValueAtTime(0.08, beepTime + 0.05);
+    gBeep.gain.exponentialRampToValueAtTime(0.001, beepTime + 0.2);
+
+    oscBeep.connect(gBeep);
+    gBeep.connect(masterGain);
+
+    oscBeep.start(beepTime);
+    oscBeep.stop(beepTime + 0.22);
+  }
+}
+
