@@ -27,7 +27,6 @@ import CrashHistory from './components/CrashHistory';
 import MultiplierSelector from './components/MultiplierSelector';
 import PresetBetSelector from './components/PresetBetSelector';
 import StatsPanel from './components/StatsPanel';
-import LaunchOverlay from './components/LaunchOverlay';
 
 import {
   playBeep,
@@ -83,7 +82,6 @@ export default function App() {
   const [simulationSpeed, setSimulationSpeed] = useState<'normal' | 'fast'>('normal');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [systemsCheckText, setSystemsCheckText] = useState<string>('Systems check...');
-  const [launchOverlayActive, setLaunchOverlayActive] = useState<boolean>(false);
 
   // --- References for continuous rendering loop ---
   const requestRef = useRef<number | null>(null);
@@ -249,7 +247,7 @@ export default function App() {
 
         if (next >= 100) {
           clearInterval(checkInterval);
-          setLaunchOverlayActive(true);
+          launchFlight();
           return 100;
         }
         return next;
@@ -482,20 +480,8 @@ export default function App() {
       {/* Responsive Container: Max width 420px mimicking smartphone viewport exactly, expanding fluidly on small screens */}
       <div
         id="app-mobile-frame"
-        className="w-full max-w-[420px] h-screen sm:h-[860px] bg-black sm:rounded-[40px] sm:border-8 sm:border-zinc-800 flex flex-col justify-between overflow-hidden shadow-2xl relative z-10"
+        className="w-full max-w-[420px] h-[100dvh] sm:h-[860px] bg-black sm:rounded-[40px] sm:border-8 sm:border-zinc-800 flex flex-col justify-between overflow-hidden shadow-2xl relative z-10"
       >
-        <AnimatePresence>
-          {launchOverlayActive && (
-            <LaunchOverlay
-              soundEnabled={soundEnabled}
-              onComplete={() => {
-                setLaunchOverlayActive(false);
-                launchFlight();
-              }}
-            />
-          )}
-        </AnimatePresence>
-
         {/* App Top Notch / Native Header (Visible on Desktop Frame) */}
         <div className="hidden sm:flex h-7 w-full bg-zinc-900 items-center justify-between px-8 text-[11px] font-mono text-zinc-500 border-b border-zinc-950">
           <span>11:37 AM</span>
