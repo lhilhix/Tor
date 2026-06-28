@@ -16,7 +16,8 @@ import {
   RefreshCw,
   Sparkles,
   Award,
-  DollarSign
+  DollarSign,
+  ChevronDown
 } from 'lucide-react';
 
 import { GameStage, PlayerStats, ActiveBet, HistoryItem } from './types';
@@ -368,7 +369,8 @@ export default function App() {
     const isMega = crashMultiplier >= 2.0;
     const flightTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setHistory((prev) => {
-      const updated = [{ id: Date.now().toString(), multiplier: crashMultiplier, timestamp: flightTime, isMega }, ...prev];
+      const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      const updated = [{ id: uniqueId, multiplier: crashMultiplier, timestamp: flightTime, isMega }, ...prev];
       return updated.slice(0, 8); // Keep last 8
     });
 
